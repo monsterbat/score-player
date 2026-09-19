@@ -1,0 +1,453 @@
+/* 版面照 Guitar Pro 8:上面是曲目與顯示方式,左邊音軌清單,中間譜,底下一條控制列。 */
+
+:root {
+  --bg: #1c1f26;
+  --panel: #252932;
+  --panel-2: #2d323d;
+  --line: #3a4150;
+  --ink: #e8ecf3;
+  --muted: #9aa5b6;
+  --accent: #4c8dff;
+  --accent-ink: #ffffff;
+  --paper: #ffffff;
+  --danger: #ff6b6b;
+  --ok: #3ecf8e;
+  --cursor: #e03131;  /* 播放游標那條線的顏色,右上角「外觀」可以改 */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+
+/* ── 頂部 ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.song { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+
+#song-select {
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+#song-meta { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.top-tools { display: flex; align-items: center; gap: 10px; }
+
+.segment { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+
+.seg {
+  padding: 6px 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.seg:last-child { border-right: 0; }
+.seg:hover { color: var(--ink); }
+.seg.is-on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.btn {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* ── 中段:左音軌 + 右譜面 ── */
+.body { display: grid; grid-template-columns: 232px 1fr; min-height: 0; }
+
+.tracks {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.tracks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.link-btn { border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; }
+
+#track-list { flex: 1; margin: 0; padding: 6px; overflow-y: auto; list-style: none; }
+
+.track {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.track:hover { background: var(--panel-2); }
+.track.is-shown { border-color: var(--accent); background: rgba(76, 141, 255, 0.14); }
+
+.track-name { min-width: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.track-sub { display: block; color: var(--muted); font-size: 11px; }
+
+.chip {
+  width: 26px;
+  padding: 3px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chip.is-mute { border-color: var(--danger); background: var(--danger); color: #241014; }
+.chip.is-solo { border-color: var(--ok); background: var(--ok); color: #0d2a1f; }
+
+/* ── 譜面 ── */
+.stage { position: relative; min-width: 0; min-height: 0; background: #4a4f5c; }
+
+.score-area { height: 100%; overflow: auto; padding: 28px 0 40px; }
+.score-area .at-surface { margin: 0 auto; background: var(--paper); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: rgba(28, 31, 38, 0.92);
+  color: var(--muted);
+  font-size: 15px;
+}
+.overlay[hidden] { display: none; }
+
+/* ── 底部控制列 ── */
+.transport { padding: 8px 16px 12px; border-top: 1px solid var(--line); background: var(--panel); }
+
+.transport-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.buttons { display: flex; align-items: center; gap: 6px; }
+
+.ctl {
+  width: 38px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.ctl:hover { border-color: var(--accent); }
+.ctl-play { width: 48px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 16px; }
+
+.readout { display: flex; align-items: center; gap: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.readout .strong { color: var(--ink); font-weight: 700; }
+.readout .sep { opacity: 0.4; }
+
+.practice { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+.toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.toggle:hover { color: var(--ink); }
+.toggle.is-on { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.speed { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.speed input { width: 130px; accent-color: var(--accent); }
+.speed b { min-width: 42px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.progress { width: 100%; margin-top: 8px; accent-color: var(--accent); }
+
+/* ── 播放游標:現在彈到哪裡 ──
+   alphaTab 只負責把這幾個 class 放到對的位置,長什麼樣子由我們決定。
+   .at-cursor-bar  = 現在在哪一小節(整塊底色)
+   .at-cursor-beat = 現在彈到哪一拍(那條線)
+   .at-highlight   = 正在響的那幾個音符 */
+.at-cursor-bar {
+  background: rgba(255, 214, 102, 0.28);
+}
+
+.at-cursor-beat {
+  width: 3px;
+  background: var(--cursor);
+  box-shadow: 0 0 6px 1px rgba(224, 49, 49, 0.55);
+}
+
+.at-highlight * {
+  fill: var(--cursor) !important;
+  stroke: var(--cursor) !important;
+}
+
+/* ── 提示訊息 ── */
+/* 提示訊息貼在左下角(音軌清單那一側),不要蓋住譜面 */
+.hint {
+  position: fixed;
+  left: 12px;
+  bottom: 92px;
+  max-width: 210px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.hint.is-on { opacity: 1; }
+.hint.is-warn { border-color: var(--danger); color: #ffd9d9; }
+
+/* ── 說明視窗 ── */
+dialog {
+  max-width: 460px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+dialog h2 { margin: 0 0 12px; font-size: 17px; }
+dialog ol { margin: 0 0 14px; padding-left: 20px; }
+dialog li { margin-bottom: 8px; }
+.guide-note { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+
+/* 視窗窄的時候左側音軌收起來,譜還是看得到 */
+@media (max-width: 900px) {
+  .body { grid-template-columns: 1fr; }
+  .tracks { display: none; }
+  .practice { margin-left: 0; }
+}
+
+/* ── 音色與外觀對話框 ── */
+dialog { width: min(560px, calc(100vw - 40px)); }
+.dlg-label { margin: 16px 0 8px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
+.dlg-note { margin: 0 0 4px; color: var(--muted); font-size: 13px; }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+.mixer-rows { max-height: 52vh; margin-top: 14px; overflow-y: auto; }
+
+.mixer-row {
+  display: grid;
+  grid-template-columns: 108px 1fr 92px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mixer-row:last-child { border-bottom: 0; }
+.mixer-row .name { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.mixer-row select { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); color: var(--ink); font: inherit; font-size: 13px; }
+.mixer-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.mixer-row.is-percussion select { opacity: 0.45; }
+
+.segment-wide { display: inline-flex; }
+
+.swatches { display: flex; gap: 10px; }
+.swatch {
+  width: 34px;
+  height: 34px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch.is-on { border-color: var(--ink); }
+
+/* 譜面配色。alphaTab 畫在白底上,深色主題用濾鏡整片反相比逐項改色可靠。 */
+.score-area[data-theme="cream"] .at-surface { background: #f6f0e2; }
+.score-area[data-theme="dark"] .at-surface { background: #ffffff; filter: invert(1) hue-rotate(180deg); }
+.score-area[data-theme="dark"] { background: #14161b; }
+.score-area[data-theme="dark"] .at-cursor-bar { background: rgba(255, 214, 102, 0.18); }
+
+/* ── 編輯工具列 ── */
+.edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+  flex-wrap: wrap;
+}
+.edit-bar[hidden] { display: none; }
+
+.edit-status { min-width: 260px; color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums; }
+.edit-durations { display: flex; align-items: center; gap: 5px; }
+.edit-label { margin-right: 3px; color: var(--muted); font-size: 12px; }
+.chip-wide { width: auto; padding: 3px 9px; }
+.edit-actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* 編輯模式下譜面加一圈邊,提醒現在動的是譜不是播放 */
+.app[data-editing="true"] .stage { box-shadow: inset 0 0 0 2px var(--accent); }
+
+.guide-h2 { margin: 20px 0 12px; font-size: 15px; }
+
+/* 編輯模式下多了一條工具列,提示訊息要往上移,避免蓋住狀態文字 */
+.app[data-editing="true"] .hint { bottom: 150px; }
+
+/* ── 在譜上拖曳選一段 ──
+   alphaTab 會放一個 .at-selection 進來,但它不帶樣式 ——
+   不給顏色的話,拖曳時看起來會像沒有反應。 */
+.at-selection div {
+  background: rgba(76, 141, 255, 0.22);
+  border-top: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+.score-area[data-theme="dark"] .at-selection div { background: rgba(76, 141, 255, 0.3); }
+
+/* 對話框右上角的叉叉:用圖示關閉,不另外放「關閉」文字按鈕。 */
+dialog { position: relative; }
+
+.dlg-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dlg-close:hover { background: var(--panel-2); color: var(--ink); }
+
+dialog h2 { padding-right: 36px; }
+.dlg-foot:empty { display: none; }
+
+/* ── 「怎麼用」說明 ── */
+.guide-tabs { display: flex; margin: 4px 0 16px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.guide-tabs .seg { flex: 1; }
+.guide-lead { margin: 0 0 10px; font-size: 13px; font-weight: 700; }
+.guide-page ol { margin: 0 0 14px; padding-left: 20px; }
+.guide-page li { margin-bottom: 7px; font-size: 13px; }
+
+.guide-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.guide-table td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.guide-table td:first-child { width: 40%; color: var(--muted); }
+.guide-table tr:last-child td { border-bottom: 0; }
+
+.guide-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.guide-version { margin: 18px 0 0; color: var(--muted); font-size: 11px; text-align: right; }
+
+/* 速度訓練器:練不熟的段落從慢速開始,每重複一輪自動加快一點 */
+.trainer-round {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.trainer-round[hidden] { display: none; }
+
+/* ── 指板圖 ── */
+.fretboard-wrap {
+  padding: 6px 16px 2px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.fretboard-wrap[hidden] { display: none; }
+
+.fretboard svg { display: block; width: 100%; max-height: 130px; }
+.fretboard-empty { margin: 8px 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+/* 薩克斯風按鍵圖:樂器本身是直的,所以這一塊比指板高。只有薩克斯風軌才會出現。 */
+.sax-fingering {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  padding: 2px 0 4px;
+}
+/* 不要套用上面的 width:100%:這張圖窄而高,撐滿寬度會過大。 */
+.sax-fingering svg { width: auto; height: 300px; max-height: 300px; }
+.sax-info { display: flex; flex-direction: column; gap: 4px; }
+.sax-info strong { font-size: 30px; font-weight: 700; letter-spacing: 0.5px; }
+.sax-info span { color: var(--muted); font-size: 13px; }
+.sax-alt { font-size: 12px !important; opacity: 0.8; }
+
+/* 調性徽章:這首歌聽起來是什麼調 */
+.key-badge {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: help;
+}
+.key-badge[hidden] { display: none; }
+/* 譜上標的調號跟聽起來的不一樣 —— 常見於轉調的歌,不是錯誤,但值得標出來 */
+.key-badge.is-mismatch { border-color: #f08c00; color: #ffd8a8; }
+
+/* 移調:改的是播出來的聲音,譜不動 */
+.transpose { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.transpose select {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.transpose select.is-on { border-color: var(--accent); color: var(--accent); font-weight: 700; }

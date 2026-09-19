@@ -1,0 +1,17 @@
+{
+  "name": "score-player",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build_player.mjs",
+    "check": "node build_player.mjs && node test_player.mjs"
+  },
+  "dependencies": {
+    "opensheetmusicdisplay": "2.1.2",
+    "@coderline/alphatab": "^1.8.4"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

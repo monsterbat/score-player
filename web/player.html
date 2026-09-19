@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>互動樂譜播放器</title>
+    <style>/*__PLAYER_CSS__*/</style>
+    <script>
+      if (document.querySelector("style")?.textContent.includes("__PLAYER_CSS__")) {
+        window.location.replace("../output/score_player.html");
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app" data-app-ready="false">
+      <!-- 頂部:歌是哪一首、要看哪一種譜 -->
+      <header class="topbar">
+        <div class="song">
+          <select id="song-select" aria-label="曲目"></select>
+          <p id="song-meta">載入中…</p>
+          <span id="key-badge" class="key-badge" hidden></span>
+        </div>
+        <div class="top-tools">
+          <div class="segment" role="group" aria-label="顯示方式">
+            <button class="seg" type="button" data-stave="ScoreTab">五線譜＋六線譜</button>
+            <button class="seg" type="button" data-stave="Tab">只看六線譜</button>
+            <button class="seg" type="button" data-stave="Score">只看五線譜</button>
+          </div>
+          <button id="edit-button" class="btn" type="button">✏️ 編輯</button>
+          <button id="mixer-button" class="btn" type="button">🎛 音色</button>
+          <button id="look-button" class="btn" type="button">🎨 外觀</button>
+          <button id="print-button" class="btn" type="button" title="印出來,或存成 PDF">🖨 列印</button>
+          <button id="help-button" class="btn" type="button">怎麼用</button>
+          <label class="btn" for="score-file">開啟檔案</label>
+          <input id="score-file" type="file" accept=".gp,.gp3,.gp4,.gp5,.gpx,.musicxml,.xml,.mxl" hidden>
+        </div>
+      </header>
+
+      <div class="body">
+        <!-- 左側:音軌清單。Guitar Pro 就是這樣,每一軌自己有靜音與獨奏 -->
+        <aside class="tracks" aria-label="音軌">
+          <div class="tracks-head">
+            <span>音軌</span>
+            <button id="track-all" class="link-btn" type="button">全部顯示</button>
+          </div>
+          <ul id="track-list"></ul>
+        </aside>
+
+        <section class="stage">
+          <div id="alphatab" class="score-area"></div>
+          <div id="overlay" class="overlay">正在排譜…</div>
+        </section>
+      </div>
+
+      <!-- 編輯工具列:只在編輯模式出現 -->
+      <div id="edit-bar" class="edit-bar" hidden>
+        <span id="edit-status" class="edit-status"></span>
+        <div class="edit-durations" role="group" aria-label="音長">
+          <span class="edit-label">音長</span>
+          <button class="chip chip-wide" type="button" data-duration="1">全</button>
+          <button class="chip chip-wide" type="button" data-duration="2">2分</button>
+          <button class="chip chip-wide" type="button" data-duration="4">4分</button>
+          <button class="chip chip-wide" type="button" data-duration="8">8分</button>
+          <button class="chip chip-wide" type="button" data-duration="16">16分</button>
+          <button class="chip chip-wide" type="button" data-duration="32">32分</button>
+        </div>
+        <div class="edit-actions">
+          <button id="beat-add" class="btn" type="button">＋ 加一拍</button>
+          <button id="beat-delete" class="btn" type="button">－ 刪一拍</button>
+          <button id="edit-delete" class="btn" type="button">刪掉這個音</button>
+          <button id="edit-undo" class="btn" type="button">↩︎ 收回上一步</button>
+          <button id="edit-save" class="btn btn-primary" type="button">💾 存成 .gp 檔</button>
+        </div>
+      </div>
+
+      <!-- 指板圖:播到哪就亮哪幾格 -->
+      <div id="fretboard-wrap" class="fretboard-wrap" hidden>
+        <div id="fretboard" class="fretboard"></div>
+      </div>
+
+      <!-- 底部控制列:照 Guitar Pro 的位置與順序 -->
+      <footer class="transport">
+        <div class="transport-row">
+          <div class="buttons">
+            <button id="to-start" class="ctl" type="button" aria-label="回到開頭">⏮</button>
+            <button id="prev-bar" class="ctl" type="button" aria-label="上一小節">⏪</button>
+            <button id="play" class="ctl ctl-play" type="button" aria-label="播放">▶</button>
+            <button id="next-bar" class="ctl" type="button" aria-label="下一小節">⏩</button>
+            <button id="stop" class="ctl" type="button" aria-label="停止">⏹</button>
+          </div>
+
+          <div class="readout">
+            <span id="bar-readout" class="strong">1 / 1</span>
+            <span class="sep">·</span>
+            <span id="time-readout">0:00 / 0:00</span>
+            <span class="sep">·</span>
+            <span id="tempo-readout">♩ = 0</span>
+          </div>
+
+          <div class="practice">
+            <button id="loop" class="toggle" type="button" title="循環播放選取的範圍">🔁 循環</button>
+            <button id="metronome" class="toggle" type="button" title="每拍打一下">🥁 節拍器</button>
+            <button id="countin" class="toggle" type="button" title="播放前先數一小節">⏱ 預備拍</button>
+            <button id="trainer" class="toggle" type="button" title="每重複一輪就加快 5%,到原速為止">⏫ 漸快</button>
+            <button id="fretboard-button" class="toggle" type="button" title="顯示現在按指板的哪幾格">🎸 指板</button>
+            <label class="transpose">
+              移調
+              <select id="transpose">
+                <option value="-5">−5</option><option value="-4">−4</option>
+                <option value="-3">−3</option><option value="-2">−2</option>
+                <option value="-1">−1</option>
+                <option value="0" selected>原調</option>
+                <option value="1">＋1</option><option value="2">＋2</option>
+                <option value="3">＋3</option><option value="4">＋4</option>
+                <option value="5">＋5</option>
+              </select>
+            </label>
+            <label class="speed">
+              速度
+              <input id="speed" type="range" min="25" max="150" step="5" value="100">
+              <b id="speed-label">100%</b>
+              <span id="trainer-round" class="trainer-round" hidden></span>
+            </label>
+          </div>
+        </div>
+
+        <input id="progress" class="progress" type="range" min="0" max="1000" value="0" aria-label="播放位置">
+      </footer>
+
+      <div id="hint" class="hint"></div>
+    </main>
+
+    <dialog id="guide">
+      <h2>怎麼用</h2>
+
+      <div class="guide-tabs" role="group" aria-label="說明分類">
+        <button class="seg is-on" type="button" data-guide="play">練習</button>
+        <button class="seg" type="button" data-guide="view">看譜</button>
+        <button class="seg" type="button" data-guide="edit">改譜</button>
+        <button class="seg" type="button" data-guide="keys">鍵盤</button>
+      </div>
+
+      <section class="guide-page" data-page="play">
+        <p class="guide-lead">最重要的三件事</p>
+        <ol>
+          <li><b>點譜上任何一個地方</b>，播放位置就跳到那裡。</li>
+          <li><b>按住拖曳</b>選一段，再按「🔁 循環」，就一直重複那幾小節。</li>
+          <li>練不熟的段落：速度拉到 <b>50%</b>，開節拍器與預備拍。</li>
+        </ol>
+        <table class="guide-table">
+          <tr><td>播放／暫停</td><td>▶ 或空白鍵</td></tr>
+          <tr><td>上一／下一小節</td><td>⏪ ⏩ 或左右方向鍵</td></tr>
+          <tr><td>放慢</td><td>右下角速度條，25% 到 150%</td></tr>
+          <tr><td>自動由慢變快</td><td>速度拉慢 → 開 <b>⏫ 漸快</b>，每重複一輪加 5%，到原速停</td></tr>
+          <tr><td>看現在按哪幾格</td><td>開 <b>🎸 指板</b>，播到哪就亮哪裡</td></tr>
+          <tr><td>薩克斯風要按哪幾顆鍵</td><td>同一顆 <b>🎸 指板</b>。薩克斯風的軌會自己換成按鍵圖</td></tr>
+          <tr><td>換樂器、調音量</td><td>右上角 🎛 音色</td></tr>
+          <tr><td>降 key 練唱</td><td>底下的<b>移調</b>選單。只改聲音，譜不會變</td></tr>
+          <tr><td>印出來 / 存 PDF</td><td>右上角 <b>🖨 列印</b></td></tr>
+        </table>
+        <p class="guide-note">播放位置有三層：那一小節變淡黃底、紅線指到這一拍、正在響的音符變紅。</p>
+        <p class="guide-note">薩克斯風的指法是 Yamaha YDS-120 原廠手冊上的，譜上的 A3 到 F♯6 都查得到。這張表查的是<b>譜上看到的音</b>，不必自己先移調。</p>
+      </section>
+
+      <section class="guide-page" data-page="view" hidden>
+        <table class="guide-table">
+          <tr><td>換一首</td><td>左上角曲目選單</td></tr>
+          <tr><td>換一種譜</td><td>右上角三顆按鈕</td></tr>
+          <tr><td>只看某一軌</td><td>左邊點那一軌的名字</td></tr>
+          <tr><td>全部疊起來</td><td>左上角「全部顯示」</td></tr>
+          <tr><td>靜音一軌</td><td>那一軌的 <b>M</b></td></tr>
+          <tr><td>只聽一軌</td><td>那一軌的 <b>S</b></td></tr>
+          <tr><td>換配色</td><td>右上角 🎨 外觀</td></tr>
+        </table>
+        <p class="guide-note">顯示跟聲音是分開的。看一軌的譜，聽到的還是全部軌一起，要只聽一軌用 S。</p>
+      </section>
+
+      <section class="guide-page" data-page="edit" hidden>
+        <p class="guide-lead">按右上角「✏️ 編輯」，再點譜上一個音符，它會變藍色。</p>
+        <table class="guide-table">
+          <tr><td>改格位</td><td><b>直接按數字</b>，兩位數連著打</td></tr>
+          <tr><td>換弦</td><td>上下方向鍵</td></tr>
+          <tr><td>加一個音</td><td>移到沒有音的那條弦，按數字</td></tr>
+          <tr><td>刪掉</td><td>Delete</td></tr>
+          <tr><td>改音高（鋼琴這類沒格位的）</td><td>上下方向鍵</td></tr>
+          <tr><td>加／刪一整拍</td><td>底下的「＋ 加一拍」「－ 刪一拍」</td></tr>
+          <tr><td>收回上一步</td><td>Command + Z</td></tr>
+          <tr><td>改音長</td><td>底下那排「全 2分 4分 8分 16分 32分」</td></tr>
+          <tr><td>存檔</td><td>💾 存成 .gp 檔</td></tr>
+        </table>
+        <p class="guide-note">存出來的檔 Guitar Pro 跟 TuxGuitar 都讀得懂。鋼琴那種沒有弦的音軌改不了格位。</p>
+      </section>
+
+      <section class="guide-page" data-page="keys" hidden>
+        <p class="guide-lead">平常</p>
+        <table class="guide-table">
+          <tr><td>空白鍵</td><td>播放／暫停</td></tr>
+          <tr><td>← →</td><td>上一／下一小節</td></tr>
+        </table>
+        <p class="guide-lead">編輯模式</p>
+        <table class="guide-table">
+          <tr><td>0 到 9</td><td>改格位</td></tr>
+          <tr><td>↑ ↓</td><td>換弦</td></tr>
+          <tr><td>← →</td><td>換到前／後一個音</td></tr>
+          <tr><td>Delete</td><td>刪掉這個音</td></tr>
+          <tr><td>Esc</td><td>取消選取</td></tr>
+          <tr><td>Command + Z</td><td>收回上一步</td></tr>
+          <tr><td>Command + S</td><td>存檔</td></tr>
+        </table>
+      </section>
+
+      <p class="guide-version">v1.0 · 完整說明在專案的「播放器操作說明.md」</p>
+    </dialog>
+
+    <!-- 音色:每一軌各自挑樂器與音量,像 Guitar Pro 的混音台 -->
+    <dialog id="mixer">
+      <h2>音色</h2>
+      <p class="dlg-note">每一軌可以換成別的樂器。改完直接按播放就聽得到。</p>
+      <div id="mixer-rows" class="mixer-rows"></div>
+      <form method="dialog" class="dlg-foot">
+        <button class="btn" value="reset" id="mixer-reset" type="button">還原成原譜</button>
+      </form>
+    </dialog>
+
+    <!-- 外觀:譜面的配色與游標顏色 -->
+    <dialog id="look">
+      <h2>外觀</h2>
+
+      <p class="dlg-label">譜面配色</p>
+      <div class="segment segment-wide" role="group" aria-label="譜面配色">
+        <button class="seg" type="button" data-theme="paper">白紙</button>
+        <button class="seg" type="button" data-theme="cream">米色</button>
+        <button class="seg" type="button" data-theme="dark">深色</button>
+      </div>
+
+      <p class="dlg-label">播放游標的顏色</p>
+      <div class="swatches" id="cursor-colors" role="group" aria-label="游標顏色"></div>
+
+      <p class="dlg-note">配色只影響看的，不會動到樂譜檔案本身。</p>
+      <form method="dialog" class="dlg-foot">
+        <button class="btn" value="reset" id="look-reset" type="button">還原預設</button>
+      </form>
+    </dialog>
+
+    <script type="text/plain" id="alphatab-src">/*__ALPHATAB_JS__*/</script>
+    <script>/*__ASSETS__*/</script>
+    <script>/*__PLAYER_JS__*/</script>
+    <script>/*__EDITOR_JS__*/</script>
+    <script>/*__SAXFINGERING_JS__*/</script>
+    <script>/*__FRETBOARD_JS__*/</script>
+    <script>/*__KEYDETECT_JS__*/</script>
+  </body>
+</html>
