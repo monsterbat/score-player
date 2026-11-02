@@ -12,7 +12,7 @@ const editor = {
   on: false,
   note: null,        // 現在選到的音符
   beat: null,        // 現在選到的拍(沒有音符的拍也選得到,才加得了音)
-  string: 1,         // 現在停在第幾弦,從 1 開始,1 是最細的那條
+  string: 1,         // 現在停在第幾弦。用 alphaTab 的編號:1 是最低音那條,六線譜最下面一條
   undo: [],          // 每一步的反向操作
   typing: "",        // 正在輸入的格位數字,兩位數要連打
   typingTimer: null,
@@ -102,7 +102,7 @@ function showEditorStatus() {
   }
   const bar = editor.beat ? editor.beat.voice.bar.index + 1 : "?";
   const stringed = isStringedTrack();
-  const where = stringed ? `第 ${bar} 小節 · 第 ${editor.string} 弦` : `第 ${bar} 小節`;
+  const where = stringed ? `第 ${bar} 小節 · 第 ${stringForPeople(editor.string)} 弦` : `第 ${bar} 小節`;
   const what = editor.note
     ? (editor.note.isStringed ? `第 ${editor.note.fret} 格` : "選到一個音")
     : (stringed ? "這條弦沒有音" : "這一拍沒有音");
@@ -149,7 +149,7 @@ function setFret(fret) {
     if (before === fret) return;
     existing.fret = fret;
     selectNote(existing, false);
-    applyEdit(`把第 ${editor.string} 弦改成第 ${fret} 格`, () => {
+    applyEdit(`把第 ${stringForPeople(editor.string)} 弦改成第 ${fret} 格`, () => {
       existing.fret = before;
     });
     return;
@@ -170,7 +170,7 @@ function addNoteOnString(string, fret) {
   note.fret = fret;
   editor.beat.addNote(note);
   selectNote(note, false);
-  applyEdit(`在第 ${string} 弦加一個第 ${fret} 格的音`, () => {
+  applyEdit(`在第 ${stringForPeople(string)} 弦加一個第 ${fret} 格的音`, () => {
     editor.beat.removeNote(note);
     if (editor.note === note) editor.note = null;
   });
@@ -184,7 +184,7 @@ function deleteSelected() {
     return;
   }
   const beat = note.beat;
-  const label = note.isStringed ? `第 ${note.string} 弦第 ${note.fret} 格` : "這個音";
+  const label = note.isStringed ? `第 ${stringForPeople(note.string)} 弦第 ${note.fret} 格` : "這個音";
   beat.removeNote(note);
   editor.note = null;
   editor.beat = beat;
@@ -288,6 +288,12 @@ function deleteBeat() {
 }
 
 // ── 換弦、換音符 ────────────────────────────────────────────────
+// 給人看的弦號:吉他手講的「第 1 弦」是最細、最高音那條,跟 alphaTab 的編號剛好相反。
+function stringForPeople(string) {
+  const count = editorTrack()?.staves?.[0]?.stringTuning?.tunings?.length || 6;
+  return count - string + 1;
+}
+
 function moveString(step) {
   const track = editorTrack();
   const count = track?.staves?.[0]?.stringTuning?.tunings?.length || 6;
@@ -426,14 +432,15 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   switch (event.key) {
-    // 上下鍵:有弦的樂器是換弦,鍵盤樂器沒有弦可換,改的是音高
+    // 上下鍵:有弦的樂器是換弦,鍵盤樂器沒有弦可換,改的是音高。
+    // 往上 = 六線譜上面那條 = 音比較高的弦 = alphaTab 的弦號 +1
     case "ArrowUp":
       event.preventDefault();
-      if (isStringedTrack()) moveString(-1); else transposeNote(1);
+      if (isStringedTrack()) moveString(1); else transposeNote(1);
       break;
     case "ArrowDown":
       event.preventDefault();
-      if (isStringedTrack()) moveString(1); else transposeNote(-1);
+      if (isStringedTrack()) moveString(-1); else transposeNote(-1);
       break;
     case "ArrowLeft": event.preventDefault(); moveBeat(-1); break;
     case "ArrowRight": event.preventDefault(); moveBeat(1); break;
@@ -458,7 +465,7 @@ function confirmDiscardEdits(what) {
   if (!editor.dirty) return true;
   const ok = window.confirm(
     `你改了譜還沒存。${what}會把改動丟掉。\n\n` +
-    "按「取消」回去存檔（編輯工具列的「💾 存成 .gp 檔」），按「確定」丟掉改動。",
+    "按「取消」回去存檔（編輯工具列的「存成 .gp 檔」），按「確定」丟掉改動。",
   );
   if (ok) {
     editor.dirty = false;
@@ -479,6 +486,12 @@ window.scoreEditor = {
     dirty: editor.dirty,
     undoDepth: editor.undo.length,
     string: editor.string,
+    stringForPeople: stringForPeople(editor.string),
+    // 這條弦的空弦音高:測「往上鍵是不是換到比較高的弦」用
+    stringOpen: (() => {
+      const tunings = editorTrack()?.staves?.[0]?.stringTuning?.tunings ?? [];
+      return tunings[tunings.length - editor.string] ?? null;
+    })(),
     fret: editor.note?.fret ?? null,
     hasNote: Boolean(editor.note),
     hasBeat: Boolean(editor.beat),

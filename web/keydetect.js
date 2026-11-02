@@ -58,9 +58,11 @@ function pitchProfile(score, trackIndexes) {
           for (const beat of voice?.beats ?? []) {
             const length = Math.max(1, beat.playbackDuration || 0);
             for (const note of beat?.notes ?? []) {
-              const midi = note.isStringed
-                ? (staff.stringTuning?.tunings?.[note.string - 1] ?? 0) + note.fret
-                : note.octave * 12 + note.tone;
+              if (note.isDead) continue;         // 悶音(x)沒有音高
+              // 不要自己用 tunings[string - 1] 換算:alphaTab 的第 1 弦是最低音那條,
+              //    而 tunings 是從最高音排起,兩邊方向相反,算出來的音會錯。
+              //    calculateRealValue(不含移調, 不含泛音)有弦沒弦都算得對。
+              const midi = note.calculateRealValue(false, false);
               if (midi <= 0) continue;
               weights[((midi % 12) + 12) % 12] += length;
               notes += 1;
@@ -109,10 +111,11 @@ function refreshKey() {
   const score = state.api?.score;
   if (!score?.tracks?.length) return;
   const written = writtenKey(score);
-  const heard = detectKey(score, state.shownTracks);
+  // 用整首所有有音高的軌來算 —— 調性是這首歌的,不會因為你在看哪一軌而改變。
+  const heard = detectKey(score);
 
   if (!heard) {
-    ui.keyBadge.textContent = written ? `調號 ${written}` : "";
+    ui.keyBadge.innerHTML = written ? `${icon("key")}<span>調號 ${written}</span>` : "";
     ui.keyBadge.title = "";
     ui.keyBadge.hidden = !written;
     return;
@@ -122,13 +125,13 @@ function refreshKey() {
   const sure = heard.gap >= 0.06 ? "" : "（不太確定）";
   const same = written && written.replace(/[♯♭]/g, (m) => m) === heard.name;
   ui.keyBadge.hidden = false;
-  ui.keyBadge.textContent = `🎼 ${heard.name}${sure}`;
+  ui.keyBadge.innerHTML = `${icon("key")}<span>${heard.name}${sure}</span>`;
   ui.keyBadge.classList.toggle("is-mismatch", Boolean(written) && !same);
   ui.keyBadge.title = [
     `聽起來像:${heard.name}(相關係數 ${heard.score.toFixed(2)},第二名 ${heard.runnerUp})`,
     written ? `譜上標的調號:${written}` : "譜上沒有標調號",
     `依據 ${heard.notes} 個音的時值統計(Krumhansl-Schmuckler)`,
-    Boolean(written) && !same ? "⚠️ 兩者不一致 —— 常見於轉調的歌,或譜的調號本來就標得不準" : "",
+    Boolean(written) && !same ? "注意:兩者不一致。常見於轉調的歌,或譜的調號本來就標得不準" : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -141,7 +144,7 @@ window.scoreKey = {
     const score = state.api?.score;
     return {
       written: score ? writtenKey(score) : null,
-      heard: score ? detectKey(score, state.shownTracks) : null,
+      heard: score ? detectKey(score) : null,
       badge: ui.keyBadge.textContent,
       visible: !ui.keyBadge.hidden,
     };

@@ -12,6 +12,7 @@ const at = path.join(root, "node_modules", "@coderline", "alphatab", "dist");
 const paths = {
   template: path.join(root, "web", "player.html"),
   css: path.join(root, "web", "player.css"),
+  icons: path.join(root, "web", "icons.js"),
   app: path.join(root, "web", "player.js"),
   editor: path.join(root, "web", "editor.js"),
   saxfingering: path.join(root, "web", "saxfingering.js"),
@@ -65,6 +66,8 @@ const replacements = {
   "/*__ASSETS__*/": escapeScript(
     `window.AT_ASSETS=${JSON.stringify(assets)};window.SCORE_LIBRARY=${JSON.stringify(library)};`,
   ),
+  // 圖示要排在播放器前面 —— 播放器一開始就會用 icon() 換播放鍵的圖
+  "/*__ICONS_JS__*/": escapeScript(fs.readFileSync(paths.icons, "utf8")),
   "/*__PLAYER_JS__*/": escapeScript(fs.readFileSync(paths.app, "utf8")),
   "/*__EDITOR_JS__*/": escapeScript(fs.readFileSync(paths.editor, "utf8")),
   // 薩克斯風要排在指板前面 —— 指板會去呼叫 window.scoreSaxFingering。

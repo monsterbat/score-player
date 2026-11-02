@@ -31,20 +31,25 @@ body {
   height: 100vh;
 }
 
-/* ── 頂部 ── */
+/* ── 頂部 ──
+   按鈕的字一律不准拆成兩行(「編輯」拆成「編/輯」很難看)。
+   空間不夠時讓左邊的曲名資訊先縮(超出的用 … 收掉);再不夠,整排按鈕換到第二行。 */
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px 16px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
-.song { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.song { display: flex; flex: 1 1 260px; align-items: baseline; gap: 12px; min-width: 0; }
 
 #song-select {
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 320px;
   padding: 6px 10px;
   border: 1px solid var(--line);
@@ -55,11 +60,21 @@ body {
   font-weight: 700;
 }
 
-#song-meta { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#song-meta { flex: 1 1 0; min-width: 0; margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.top-tools { display: flex; align-items: center; gap: 10px; }
+.top-tools { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
 
-.segment { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segment { display: flex; flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+
+/* 所有按鈕的字都是一行。容器太窄時是整顆按鈕換行,不是字換行。 */
+.btn, .seg, .ctl, .toggle, .chip, .key-badge { white-space: nowrap; }
+.key-badge { flex-shrink: 0; }
+
+/* ── 圖示 ──
+   全部是 web/icons.js 那一套線條圖示,顏色跟著字走(currentColor)。
+   圖示和字之間固定 6px,大小固定,整排看起來才是同一個家族。 */
+.ic { width: 16px; height: 16px; flex-shrink: 0; }
+.btn, .toggle, .key-badge, .guide-btn { display: inline-flex; align-items: center; gap: 6px; }
 
 .seg {
   padding: 6px 12px;
@@ -76,7 +91,6 @@ body {
 .seg.is-on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
 .btn {
-  display: inline-block;
   padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -169,20 +183,38 @@ body {
 
 .transport-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 
-.buttons { display: flex; align-items: center; gap: 6px; }
+.buttons { display: flex; align-items: center; gap: 2px; }
 
+/* 控制鈕平常沒有框,滑過去才浮出底色 —— 一排五個框框擠在一起很吵。
+   只有播放鍵是實心的圓,一眼就找得到。 */
 .ctl {
-  width: 38px;
-  height: 34px;
-  border: 1px solid var(--line);
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
-  background: var(--panel-2);
-  color: var(--ink);
-  font-size: 14px;
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
-.ctl:hover { border-color: var(--accent); }
-.ctl-play { width: 48px; border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 16px; }
+.ctl .ic { width: 18px; height: 18px; }
+.ctl:hover { background: var(--panel-2); color: var(--ink); }
+.ctl-play {
+  width: 44px;
+  height: 44px;
+  margin: 0 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 2px 10px rgba(76, 141, 255, 0.35);
+}
+.ctl-play .ic { width: 20px; height: 20px; }
+.ctl-play:hover { background: var(--accent); color: var(--accent-ink); filter: brightness(1.12); }
+/* 三角形的重心偏左,往右挪 1px 看起來才在圓心 */
+.ctl-play[aria-label="播放"] .ic { transform: translateX(1px); }
 
 .readout { display: flex; align-items: center; gap: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .readout .strong { color: var(--ink); font-weight: 700; }
@@ -190,6 +222,7 @@ body {
 
 .practice { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 
+.toggle .ic { width: 15px; height: 15px; }
 .toggle {
   padding: 6px 10px;
   border: 1px solid var(--line);
@@ -335,7 +368,7 @@ dialog { width: min(560px, calc(100vw - 40px)); }
 .guide-h2 { margin: 20px 0 12px; font-size: 15px; }
 
 /* 編輯模式下多了一條工具列,提示訊息要往上移,避免蓋住狀態文字 */
-.app[data-editing="true"] .hint { bottom: 150px; }
+/* .hint 的 bottom 由 player.js 的 hint() 依底下有哪幾排面板即時算,這裡的 92px 只是還沒算之前的預設 */
 
 /* ── 在譜上拖曳選一段 ──
    alphaTab 會放一個 .at-selection 進來,但它不帶樣式 ——
@@ -350,7 +383,10 @@ dialog { width: min(560px, calc(100vw - 40px)); }
 /* 對話框右上角的叉叉:用圖示關閉,不另外放「關閉」文字按鈕。 */
 dialog { position: relative; }
 
+.dlg-close .ic { width: 18px; height: 18px; }
 .dlg-close {
+  display: inline-grid;
+  place-items: center;
   position: absolute;
   top: 12px;
   right: 12px;
@@ -378,6 +414,8 @@ dialog h2 { padding-right: 36px; }
 .guide-page li { margin-bottom: 7px; font-size: 13px; }
 
 .guide-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.guide-btn { gap: 4px; vertical-align: -3px; }
+.guide-btn .ic { width: 15px; height: 15px; }
 .guide-table td { padding: 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 .guide-table td:first-child { width: 40%; color: var(--muted); }
 .guide-table tr:last-child td { border-bottom: 0; }
@@ -435,6 +473,8 @@ dialog h2 { padding-right: 36px; }
   white-space: nowrap;
   cursor: help;
 }
+.key-badge { gap: 5px; }
+.key-badge .ic { width: 14px; height: 14px; }
 .key-badge[hidden] { display: none; }
 /* 譜上標的調號跟聽起來的不一樣 —— 常見於轉調的歌,不是錯誤,但值得標出來 */
 .key-badge.is-mismatch { border-color: #f08c00; color: #ffd8a8; }

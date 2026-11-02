@@ -145,11 +145,11 @@ try {
     // 顯示方式:三種都要能切
     await page.click("[data-stave='Tab']");
     await rendered();
-    check("切到只看六線譜", (await snapshot()).stave === "Tab");
+    check("切到只看 TAB 譜", (await snapshot()).stave === "Tab");
     await page.screenshot({ path: shots.tabOnly });
     await page.click("[data-stave='ScoreTab']");
     await rendered();
-    check("切回五線譜＋六線譜", (await snapshot()).stave === "ScoreTab");
+    check("切回五線譜＋TAB 譜", (await snapshot()).stave === "ScoreTab");
 
     // 跳小節
     await page.evaluate(() => window.scorePlayer.seekToBar(40));
@@ -399,6 +399,10 @@ try {
     check("亮的位置在合理範圍內",
       fb.active.every((a) => a.string >= 1 && a.string <= 6 && a.fret >= 0 && a.fret <= 24),
       JSON.stringify(fb.active));
+    // 「在合理範圍內」驗不出指板上下顛倒(alphaTab 的第 1 弦是最低音那條,跟吉他手的叫法相反)。
+    //    要驗的是:點畫在哪一條,那一條的空弦音 + 格數,就等於這個音真正的音高。
+    check(`指板的點畫在正確的弦上(${fb.rows.map((r) => `空弦 ${r.open} + ${r.fret} 格 = ${r.pitch}`).join("、") || "沒有點"})`,
+      fb.rows.length > 0 && fb.rows.every((r) => r.open + r.fret === r.pitch), JSON.stringify(fb.rows));
     await page.screenshot({ path: shots.fretboard });
 
     // 換到貝斯,指板要跟著變成四條弦
@@ -408,6 +412,18 @@ try {
     await settle(400);
     check("換到貝斯指板變成 4 弦", (await page.evaluate(() => window.scoreFretboard.getSnapshot())).strings === 4,
       JSON.stringify((await page.evaluate(() => window.scoreFretboard.getSnapshot())).strings));
+    // 切軌會跳一則提示。指板打開時,提示不能蓋在指板上(左邊是弦名與空弦的位置)
+    const overlap = await page.evaluate(() => {
+      const tip = document.querySelector("#hint").getBoundingClientRect();
+      const board = document.querySelector("#fretboard-wrap").getBoundingClientRect();
+      return { tipBottom: Math.round(tip.bottom), boardTop: Math.round(board.top), shown: document.querySelector("#hint").classList.contains("is-on") };
+    });
+    check(`提示訊息浮在指板上面,不會蓋住它(提示底 ${overlap.tipBottom} ≤ 指板頂 ${overlap.boardTop})`,
+      overlap.shown && overlap.tipBottom <= overlap.boardTop, JSON.stringify(overlap));
+    // 調性是整首歌的,換看哪一軌都不應該跟著變。
+    const keyOnBass = await page.evaluate(() => window.scoreKey.getSnapshot());
+    check(`換看別的軌,調性不會跟著變(${key.badge} → ${keyOnBass.badge})`,
+      keyOnBass.badge === key.badge, JSON.stringify({ before: key.badge, after: keyOnBass.badge }));
 
     // 打擊軌沒有指板,要明確說明,而不是畫一塊空白
     const percIndex = (await page.locator(".track .track-name").allTextContents()).findIndex((n) => n.includes("Percusi"));
@@ -416,6 +432,45 @@ try {
     await settle(400);
     const fbText = (await page.textContent("#fretboard")) ?? "";
     check("打擊軌會明講沒有指板", fbText.includes("沒有指板"), fbText.trim().slice(0, 30));
+
+    // 獨奏常常爬到 15 格以上。指板要跟著拉長,不然那一段整個看不到。
+    const leadIndex = (await page.locator(".track .track-name").allTextContents()).findIndex((n) => /lead|solo/i.test(n));
+    if (leadIndex >= 0) {
+      await page.locator(".track").nth(leadIndex).locator(".track-name").click();
+      await rendered();
+      await settle(400);
+      const reach = await page.evaluate(() => {
+        const track = window.at.score.tracks[[...window.scorePlayer.getSnapshot().shownTracks][0]];
+        let highest = 0;
+        for (const staff of track.staves) for (const bar of staff.bars) for (const voice of bar.voices) {
+          for (const beat of voice.beats) for (const note of beat.notes) highest = Math.max(highest, note.fret);
+        }
+        return { highest, frets: window.scoreFretboard.getSnapshot().frets };
+      });
+      check(`指板拉長到這一軌最高的把位(最高第 ${reach.highest} 格,指板畫到第 ${reach.frets} 格)`,
+        reach.frets >= Math.min(24, reach.highest), JSON.stringify(reach));
+
+      // 悶音(譜上的 x)沒有音高,指板要畫 ×,不能畫成空弦的圈
+      const muted = await page.evaluate(() => {
+        const track = window.at.score.tracks[[...window.scorePlayer.getSnapshot().shownTracks][0]];
+        for (const staff of track.staves) for (const bar of staff.bars) for (const voice of bar.voices) {
+          for (const beat of voice.beats) {
+            const dead = beat.notes.filter((n) => n.isDead && n.fret === 0);
+            if (dead.length) {
+              window.scoreFretboard.update([beat]);
+              const snap = window.scoreFretboard.getSnapshot();
+              return { found: true, dead: dead.length, deadMarks: snap.deadMarks, openMarks: snap.openMarks,
+                openNotes: beat.notes.filter((n) => !n.isDead && n.fret === 0).length };
+            }
+          }
+        }
+        return { found: false };
+      });
+      if (muted.found) {
+        check(`悶音畫成 ×,不會畫成空弦(悶音 ${muted.dead} 個 → × ${muted.deadMarks} 個,空弦圈 ${muted.openMarks} 個)`,
+          muted.deadMarks === muted.dead && muted.openMarks === muted.openNotes, JSON.stringify(muted));
+      }
+    }
 
     // 切回吉他,關掉指板
     await page.locator(".track").nth(2).locator(".track-name").click();
@@ -498,6 +553,23 @@ try {
     await settle(500);
     const moved = await page.evaluate(() => window.scoreEditor.getSnapshot());
     check(`上下鍵換得動弦(第 ${original.string} → 第 ${moved.string} 弦)`, moved.string !== original.string, JSON.stringify(moved.string));
+
+    // 方向要對:往上鍵 = 六線譜上面那條 = 音比較高的弦
+    let upFrom = await page.evaluate(() => window.scoreEditor.getSnapshot());
+    if (upFrom.stringForPeople === 1) {      // 已經在最細那條,先往下一條才有地方往上
+      await page.keyboard.press("ArrowDown");
+      await settle(400);
+      upFrom = await page.evaluate(() => window.scoreEditor.getSnapshot());
+    }
+    await page.keyboard.press("ArrowUp");
+    await settle(400);
+    const upTo = await page.evaluate(() => window.scoreEditor.getSnapshot());
+    check(`往上鍵換到音比較高的那條弦(空弦 ${upFrom.stringOpen} → ${upTo.stringOpen})`,
+      upTo.stringOpen > upFrom.stringOpen, JSON.stringify({ upFrom, upTo }));
+    // 弦號照吉他手的叫法:音越高的弦號碼越小,最細那條是第 1 弦
+    check(`弦號照吉他手的叫法(第 ${upFrom.stringForPeople} 弦 → 第 ${upTo.stringForPeople} 弦,狀態列寫「${upTo.status.split(" · ")[1] ?? ""}」)`,
+      upTo.stringForPeople === upFrom.stringForPeople - 1 && upTo.status.includes(`第 ${upTo.stringForPeople} 弦`),
+      upTo.status);
     await page.screenshot({ path: shots.editor });
 
     // 加一拍 / 刪一拍
@@ -665,9 +737,17 @@ try {
   await page.waitForFunction(() => window.scoreSaxFingering.getSnapshot().pressed > 0, null, { timeout: 20000 })
     .catch(() => {});
   const sax = await page.evaluate(() => window.scoreSaxFingering.getSnapshot());
+  // 播放鍵在播放中要換成暫停的圖示,名字也跟著換(螢幕報讀與滑鼠提示都讀這個)
+  const playingLabel = await page.getAttribute("#play", "aria-label");
+  const playingIcon = await page.evaluate(() => document.querySelector("#play svg")?.outerHTML.length ?? 0);
   await page.click("#play");
   check(`播放時按鍵圖會亮(${sax.pitch} / ${sax.pressed} 顆鍵)`,
     sax.pressed > 0 && Boolean(sax.pitch), JSON.stringify(sax));
+  await page.waitForFunction(() => document.querySelector("#play").getAttribute("aria-label") === "播放", null, { timeout: 5000 })
+    .catch(() => {});
+  check(`播放鍵會在播放與暫停之間換圖示(播放中顯示「${playingLabel}」,停下來顯示「${await page.getAttribute("#play", "aria-label")}」)`,
+    playingLabel === "暫停" && (await page.getAttribute("#play", "aria-label")) === "播放" && playingIcon > 0,
+    JSON.stringify({ playingLabel, playingIcon }));
   // 暫停之後手型要留著,理由跟指板圖那條一樣
   check("暫停後按鍵圖還留著",
     (await page.evaluate(() => window.scoreSaxFingering.getSnapshot())).pressed > 0);
@@ -680,6 +760,44 @@ try {
   });
   check("音超出原廠指法表會明講", outside.includes("不在原廠指法表裡"), outside.trim().slice(0, 40));
   await page.click("#fretboard-button");
+
+  // 按鈕的圖示全部是同一套線條圖示(web/icons.js)。表情符號每台電腦畫得不一樣,彩色的也跟介面不搭。
+  // 用 Extended_Pictographic 判斷,不會誤抓樂譜用的升記號、降記號、音符符號。
+  const emojiOnButtons = await page.evaluate(() => [...document.querySelectorAll("button, label.btn, .key-badge, .guide-btn")]
+    .filter((el) => /\p{Extended_Pictographic}/u.test(el.textContent))
+    .map((el) => el.textContent.trim().slice(0, 12)));
+  check(`按鈕上沒有表情符號(有的:${emojiOnButtons.join("、") || "沒有"})`, emojiOnButtons.length === 0, JSON.stringify(emojiOnButtons));
+  const iconCount = await page.evaluate(() => document.querySelectorAll("[data-icon] > svg.ic").length);
+  check(`按鈕的圖示都畫出來了(${iconCount} 個)`, iconCount >= 20, String(iconCount));
+
+  // 按鈕上的字不能被拆成兩行(視窗窄一點時,「編輯」曾經被拆成「編/輯」)。
+  // 常見的筆電視窗寬度各量一次:字要整條在同一行,頂部列也不能被撐出畫面。
+  for (const width of [1000, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    await settle(400);
+    const top = await page.evaluate(() => {
+      const split = [];
+      for (const el of document.querySelectorAll(".topbar button, .topbar label.btn, .topbar .key-badge, .transport button")) {
+        if (!el.getClientRects().length) continue;
+        // 只量字。按鈕前面的圖示也是一個方塊,跟字的高度不一樣,算進去會誤判成換行。
+        const lines = new Set();
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const r of range.getClientRects()) if (r.width > 1) lines.add(Math.round(r.top));
+        }
+        if (lines.size > 1) split.push(el.textContent.trim());
+      }
+      const bar = document.querySelector(".topbar");
+      return { split, overflow: bar.scrollWidth > bar.clientWidth + 1 };
+    });
+    check(`視窗寬 ${width} 時按鈕的字都在同一行(被拆開的:${top.split.join("、") || "沒有"})`,
+      top.split.length === 0 && !top.overflow, JSON.stringify(top));
+  }
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await settle(400);
 
   // 版面不能爆出去
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
@@ -695,4 +813,6 @@ if (problems.length) {
   for (const line of problems) console.error(`   ${line}`);
   process.exit(1);
 }
-console.log(`\n✅ 全部通過。截圖:\n  ${Object.values(shots).join("\n  ")}`);
+// 指定曲目的檢查被略過時,那幾張截圖不會產生;只列出真的有的,不要印出不存在的檔。
+const taken = Object.values(shots).filter((file) => fs.existsSync(file));
+console.log(`\n✅ 全部通過。截圖:\n  ${taken.join("\n  ")}`);

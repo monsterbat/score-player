@@ -46,6 +46,12 @@ const IS_FILE = location.protocol === "file:";
 function hint(message, warn = false) {
   ui.hint.textContent = message;
   ui.hint.classList.toggle("is-warn", warn);
+  // 浮在底下那排面板(控制列、編輯列、指板圖)的正上方。
+  // 寫死一個高度的話,指板打開時會蓋住指板左邊,那裡正是弦名與空弦的位置。
+  const tops = [...document.querySelectorAll(".transport, #edit-bar, #fretboard-wrap")]
+    .filter((el) => !el.hidden && el.getClientRects().length > 0)
+    .map((el) => el.getBoundingClientRect().top);
+  if (tops.length) ui.hint.style.bottom = `${Math.round(window.innerHeight - Math.min(...tops) + 10)}px`;
   ui.hint.classList.add("is-on");
   clearTimeout(hint.timer);
   hint.timer = setTimeout(() => ui.hint.classList.remove("is-on"), 3200);
@@ -131,8 +137,15 @@ function createApi() {
     ].filter(Boolean).join(" · ");
   });
 
-  api.renderStarted.on(() => { ui.overlay.hidden = false; ui.overlay.textContent = "正在排譜…"; });
+  // 「正在排譜」只在真的要等的時候才出來。切換音軌通常幾十毫秒就排好,
+  // 一律蓋上去的話,畫面會整片閃一下黑。等超過 300 毫秒還沒排完才顯示。
+  let renderingTimer = null;
+  api.renderStarted.on(() => {
+    clearTimeout(renderingTimer);
+    renderingTimer = setTimeout(() => { ui.overlay.hidden = false; ui.overlay.textContent = "正在排譜…"; }, 300);
+  });
   api.renderFinished.on(() => {
+    clearTimeout(renderingTimer);
     ui.overlay.hidden = true;
     ui.app.dataset.appReady = "true";
     updateTempo();
@@ -145,7 +158,8 @@ function createApi() {
 
   api.playerStateChanged.on((args) => {
     state.playing = args.state === 1;
-    ui.play.textContent = state.playing ? "⏸" : "▶";
+    ui.play.innerHTML = icon(state.playing ? "pause" : "play");
+  ui.play.setAttribute("aria-label", state.playing ? "暫停" : "播放");
     ui.play.setAttribute("aria-label", state.playing ? "暫停" : "播放");
   });
 
@@ -182,7 +196,7 @@ function createApi() {
       jumpIntoRange(range);
       hint(`改成重複第 ${from} 到 ${to} 小節`);
     } else {
-      hint(`已選第 ${from} 到 ${to} 小節，按「🔁 循環」重複練這一段`);
+      hint(`已選第 ${from} 到 ${to} 小節，按「循環」重複練這一段`);
     }
   });
 
@@ -313,7 +327,7 @@ function showOnly(track) {
   state.shownTracks = new Set([track.index]);
   state.api.renderTracks([track]);
   paintTrackList();
-  hint(`只顯示「${track.name}」的譜。要看全部按右上角「全部顯示」`);
+  hint(`只顯示「${track.name}」的譜。要看全部按左上角「全部顯示」`);
 }
 
 function showAll() {
@@ -395,7 +409,7 @@ ui.trackAll.addEventListener("click", showAll);
 
 ui.play.addEventListener("click", () => {
   if (!state.canPlay) {
-    hint("雙擊檔案打開時沒有聲音，要用主控台的網址開才聽得到", true);
+    hint("直接雙擊開的檔案不能播放。要用 http:// 開頭的網址開，才聽得到", true);
     return;
   }
   state.api.playPause();
@@ -555,7 +569,7 @@ for (const dialog of all("dialog")) {
   const close = document.createElement("button");
   close.className = "dlg-close";
   close.type = "button";
-  close.textContent = "✕";
+  close.innerHTML = icon("close");
   close.setAttribute("aria-label", "關閉");
   close.addEventListener("click", () => dialog.close());
   dialog.prepend(close);
@@ -769,7 +783,7 @@ window.scorePlayer = {
   createApi();
   if (IS_FILE) {
     state.canPlay = false;
-    hint("雙擊打開只能看譜，要聽聲音請用主控台的網址開", true);
+    hint("直接雙擊開的檔案只能看譜。要用 http:// 開頭的網址開，才聽得到", true);
   }
   loadSong(0);
 })();

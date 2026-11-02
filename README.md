@@ -11,6 +11,10 @@ It renders Guitar Pro and MusicXML scores, plays them back with a built-in synth
 and adds practice tools such as looping, a speed trainer, transposition, a guitar fretboard view,
 and saxophone fingering charts.
 
+**Try it online: https://monsterbat.github.io/score-player/**
+
+Nothing to install. Score files you open are read in your browser and are not uploaded anywhere.
+
 ### Features
 
 - **Reads scores directly**: Guitar Pro 3–7 (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) and MusicXML (`.musicxml`, `.xml`, `.mxl`), with no conversion step.
@@ -25,7 +29,7 @@ and saxophone fingering charts.
 - **Printing**: opens a clean print layout that can also be saved as PDF.
 - **Themes**: three color themes, including a dark theme.
 
-### Getting started
+### Run it locally
 
 Requirements: Node.js 20 or later (required by Playwright).
 
@@ -75,6 +79,7 @@ those files are not included in this repository for copyright reasons.
 ### License
 
 - Source code: MIT License. See [LICENSE](LICENSE).
+- `web/icons.js` contains icons from [Lucide](https://lucide.dev) (ISC License; the license text is included in the file).
 - The built page bundles third-party assets under their own licenses:
   alphaTab (MPL-2.0), the Bravura music font (SIL Open Font License 1.1),
   and the SONiVOX SoundFont (Apache License 2.0).
@@ -91,6 +96,10 @@ those files are not included in this repository for copyright reasons.
 可以直接顯示 Guitar Pro 與 MusicXML 樂譜、用內建合成器播放,
 並提供循環練習、速度訓練、移調、吉他指板圖與薩克斯風指法圖等練習工具。
 
+**線上試用:https://monsterbat.github.io/score-player/**
+
+不用安裝。你開啟的樂譜只在自己的瀏覽器裡讀取,不會上傳到任何地方。
+
 ### 功能
 
 - **直接讀取樂譜**:Guitar Pro 3–7(`.gp`、`.gp3`、`.gp4`、`.gp5`、`.gpx`)與 MusicXML(`.musicxml`、`.xml`、`.mxl`),不需要先轉檔。
@@ -105,7 +114,7 @@ those files are not included in this repository for copyright reasons.
 - **列印**:開啟只有樂譜的列印版面,也可以儲存成 PDF。
 - **配色**:三種配色,包含深色模式。
 
-### 開始使用
+### 在自己的電腦上執行
 
 需求:Node.js 20 以上(Playwright 的要求)。
 
@@ -154,5 +163,6 @@ npm run check      # 先建置播放器,再用 Playwright 在 Google Chrome 中�
 ### 授權
 
 - 程式碼:MIT License,見 [LICENSE](LICENSE)。
+- `web/icons.js` 的圖示取自 [Lucide](https://lucide.dev)(ISC 授權,授權全文附在檔案裡)。
 - 建置出的頁面包含依各自授權散布的第三方資源:
   alphaTab(MPL-2.0)、Bravura 樂譜字型(SIL Open Font License 1.1)、SONiVOX SoundFont(Apache License 2.0)。
