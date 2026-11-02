@@ -796,6 +796,18 @@ try {
     check(`視窗寬 ${width} 時按鈕的字都在同一行(被拆開的:${top.split.join("、") || "沒有"})`,
       top.split.length === 0 && !top.overflow, JSON.stringify(top));
   }
+  // 手機上頁面不能左右捲,排不下的按鈕要換行,不然永遠按不到(「開啟檔案」曾經整顆在畫面外)。
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(400);
+  const unreachable = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    return [...document.querySelectorAll(".topbar button, .topbar label.btn, .transport button, .practice button, .edit-bar button")]
+      .filter((el) => el.getClientRects().length)
+      .map((el) => [el, el.getBoundingClientRect()])
+      .filter(([, r]) => r.left < 0 || r.right > vw + 1)
+      .map(([el, r]) => `${el.textContent.trim() || el.getAttribute("aria-label") || el.id}@${Math.round(r.left)}~${Math.round(r.right)}/${vw}`);
+  });
+  check(`手機寬度每顆按鈕都按得到(超出畫面的:${unreachable.join("、") || "沒有"})`, unreachable.length === 0);
   await page.setViewportSize({ width: 1440, height: 950 });
   await settle(400);
 

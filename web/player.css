@@ -27,6 +27,8 @@ body {
 
 .app {
   display: grid;
+  /* 欄寬要明講可以縮到比內容窄,不然編輯列這種排不下的東西會把整頁撐得比視窗寬 */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   height: 100vh;
 }
@@ -302,6 +304,10 @@ dialog li { margin-bottom: 8px; }
   .body { grid-template-columns: 1fr; }
   .tracks { display: none; }
   .practice { margin-left: 0; }
+  /* 頁面本身不能左右捲,按鈕排不下一定要換行,不然右邊的按鈕永遠按不到 */
+  .top-tools { flex: 1 1 100%; justify-content: flex-start; gap: 6px; max-width: 100%; }
+  .edit-status { min-width: 0; }
+  .edit-actions { flex-wrap: wrap; margin-left: 0; }
 }
 
 /* ── 音色與外觀對話框 ── */
